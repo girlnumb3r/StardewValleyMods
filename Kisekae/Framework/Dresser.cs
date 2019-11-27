@@ -33,18 +33,24 @@ namespace Kisekae.Framework {
         private bool m_isFirstDay = true;
         /// <summary>The name for new dresser tile sheet.</summary>
         private const string s_tilesheetName = "z_dresser";
+        /// <summary>Adding a helper </summary>
+        private IModHelper m_helper;
 
         /*********
         ** Public methods
         *********/
         public Dresser(IMod env) {
             m_env = env;
+            m_helper = env.Helper;
         }
 
         public void init() {
-            TimeEvents.AfterDayStarted += this.Events_AfterDayStarted;
-            SaveEvents.AfterLoad += this.Events_AfterLoad;
-            SaveEvents.AfterReturnToTitle += Events_AfterReturnToTitle;
+            this.m_helper.Events.GameLoop.DayStarted += this.Events_AfterDayStarted;
+            this.m_helper.Events.GameLoop.SaveLoaded += this.Events_AfterLoad;
+            this.m_helper.Events.GameLoop.ReturnedToTitle += this.Events_AfterReturnToTitle;
+
+
+
         }
 
         /// <summary>Check if the dresser is in the location.</summary>

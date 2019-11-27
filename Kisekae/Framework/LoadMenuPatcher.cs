@@ -18,6 +18,7 @@ namespace Kisekae.Framework {
         *********/
         /// <summary>Global Mod Interface.</summary>
         private IMod m_env;
+        private IModHelper m_helper;
         /// <summary>The core component responsible to reshape farmer </summary>
         private FarmerMakeup m_farmerPatcher;
         /// <summary>The last patched load menu, if the game hasn't loaded yet.</summary>
@@ -31,6 +32,7 @@ namespace Kisekae.Framework {
 
         public LoadMenuPatcher(IMod env, FarmerMakeup farmerPatcher) {
             m_env = env;
+            m_helper = env.Helper;
             m_farmerPatcher = farmerPatcher;
         }
 
@@ -38,9 +40,10 @@ namespace Kisekae.Framework {
             // load per-save configs
             ReadLocalConfigs(m_farmerConfigs);
 
-            SaveEvents.AfterReturnToTitle += SaveEvents_AfterReturnToTitle;
+            this.m_helper.Events.GameLoop.ReturnedToTitle += SaveEvents_AfterReturnToTitle;
             // patch load menu hook
-            GameEvents.UpdateTick += Event_PatchLoadMenu;
+
+            this.m_helper.Events.GameLoop.UpdateTicked += Event_PatchLoadMenu;
         }
 
         /// <summary>The event handler called when the player stops a session and returns to the title screen..</summary>
@@ -56,7 +59,7 @@ namespace Kisekae.Framework {
             ReadLocalConfigs(m_farmerConfigs);
 
             // restore load-menu patcher
-            GameEvents.UpdateTick += Event_PatchLoadMenu;
+            this.m_helper.Events.GameLoop.UpdateTicked += Event_PatchLoadMenu;
         }
 
         /// <summary>The event handler to monitor if load menu is active and patch it.</summary>
@@ -78,7 +81,7 @@ namespace Kisekae.Framework {
             this.m_farmers.Clear();
             this.m_farmerConfigs.Clear();
             if (!string.IsNullOrEmpty(LocalConfig.s_perSaveConfigPath)) {
-                GameEvents.UpdateTick -= Event_PatchLoadMenu;
+                this.m_helper.Events.GameLoop.UpdateTicked -= Event_PatchLoadMenu;
             }
         }
 
@@ -97,19 +100,19 @@ namespace Kisekae.Framework {
 
         private void Event_PatchLoadMenuFarmer(object sender, EventArgs e) {
             if (!(Game1.activeClickableMenu is TitleMenu)) {
-                GameEvents.UpdateTick -= Event_PatchLoadMenuFarmer;
+                this.m_helper.Events.GameLoop.UpdateTicked -= Event_PatchLoadMenuFarmer;
                 return;
             }
 
             // get load menu
             LoadGameMenu loadMenu = TitleMenu.subMenu as LoadGameMenu;
             if (loadMenu == null || loadMenu != m_previousLoadMenu) {
-                GameEvents.UpdateTick -= Event_PatchLoadMenuFarmer;
+                this.m_helper.Events.GameLoop.UpdateTicked -= Event_PatchLoadMenuFarmer;
                 return;
             }
 
             PatchLoadMenuFarmerTexture();
-            GameEvents.UpdateTick -= Event_PatchLoadMenuFarmer;
+            this.m_helper.Events.GameLoop.UpdateTicked -= Event_PatchLoadMenuFarmer;
         }
 
         /// <summary>Patch the textures in the load menu if it's active.</summary>
@@ -162,7 +165,7 @@ namespace Kisekae.Framework {
             m_env.Helper.Reflection.GetMethod(loadMenu, "addSaveFiles").Invoke(m_farmers);
 
             // override textures. Since the texture will be override after addSaveFiles, do it in next UpdateTick
-            GameEvents.UpdateTick += Event_PatchLoadMenuFarmer;
+            this.m_helper.Events.GameLoop.UpdateTicked += Event_PatchLoadMenuFarmer;
         }
 
         /// <summary>Read all per-save configs from disk.</summary>
@@ -183,11 +186,12 @@ namespace Kisekae.Framework {
             foreach (string saveDir in directories) {
                 // get config
                 string localConfigPath = Path.Combine("psconfigs", $"{new DirectoryInfo(saveDir).Name}.json");
-                LocalConfig farmerConfig = m_env.Helper.ReadJsonFile<LocalConfig>(localConfigPath);
+                //LocalConfig farmerConfig = m_env.Helper.ReadJsonFile<LocalConfig>(localConfigPath);
+                LocalConfig farmerConfig = m_helper.Data.ReadJsonFile<LocalConfig>(localConfigPath);
                 if (farmerConfig == null) {
                     farmerConfig = new LocalConfig();
-                    m_env.Monitor.Log("create new save:"+ localConfigPath, LogLevel.Info);
-                    m_env.Helper.WriteJsonFile(localConfigPath, farmerConfig);
+                    m_env.Monitor.Log("create new save:" + localConfigPath, LogLevel.Info);
+                    m_helper.Data.WriteJsonFile<LocalConfig>(localConfigPath, farmerConfig);
                 }
                 farmerConfig.SaveName = new DirectoryInfo(saveDir).Name;
                 cfg[farmerConfig.SaveName] = farmerConfig;
